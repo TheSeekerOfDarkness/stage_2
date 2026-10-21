@@ -22,3 +22,6 @@ languages/rust/target/
 
 # Benchmark temporary files
 benchmarks/tmp/
+
+# Stage 2 Maven build output
+*-service/target/
