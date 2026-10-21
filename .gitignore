@@ -25,3 +25,4 @@ benchmarks/tmp/
 
 # Stage 2 Maven build output
 *-service/target/
+dependency-reduced-pom.xml
