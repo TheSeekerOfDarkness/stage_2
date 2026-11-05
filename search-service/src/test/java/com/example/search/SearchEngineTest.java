@@ -4,7 +4,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -28,7 +27,6 @@ public class SearchEngineTest {
         dbPath = tempDir.resolve("datamart.db");
         engine = new SearchEngine(dbPath.toString());
 
-        // Populate sample data in books and inverted_index
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath)) {
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute(
@@ -39,21 +37,18 @@ public class SearchEngineTest {
             }
 
             try (PreparedStatement insert = conn.prepareStatement("INSERT INTO inverted_index VALUES (?, ?)")) {
-                // Book 1: novel, pride, prejudice, darcy, classic
                 for (String t : List.of("novel", "pride", "prejudice", "darcy", "classic")) {
                     insert.setString(1, t);
                     insert.setInt(2, 1);
                     insert.executeUpdate();
                 }
 
-                // Book 2: novel, sense, sensibility, dashwood, classic
                 for (String t : List.of("novel", "sense", "sensibility", "dashwood", "classic")) {
                     insert.setString(1, t);
                     insert.setInt(2, 2);
                     insert.executeUpdate();
                 }
 
-                // Book 3: novel, monster, frankenstein, classic
                 for (String t : List.of("novel", "monster", "frankenstein", "classic")) {
                     insert.setString(1, t);
                     insert.setInt(2, 3);
@@ -74,60 +69,66 @@ public class SearchEngineTest {
 
     @Test
     void testSingleTermSearch() throws SQLException {
-        List<SearchResult> results = engine.search(List.of("darcy"), -1, 0);
+        // Pasamos null a author, language y year
+        List<SearchResult> results = engine.search(List.of("darcy"), null, null, null, -1, 0);
         assertEquals(1, results.size());
         assertEquals(1, results.get(0).book_id);
         assertEquals("Pride and Prejudice", results.get(0).title);
         assertEquals("Jane Austen", results.get(0).author);
 
-        int count = engine.countMatches(List.of("darcy"));
+        int count = engine.countMatches(List.of("darcy"), null, null, null);
         assertEquals(1, count);
     }
 
     @Test
     void testBooleanAndConjunction() throws SQLException {
-        // "novel" is in all 3 books
-        assertEquals(3, engine.countMatches(List.of("novel")));
-        assertEquals(3, engine.search(List.of("novel"), -1, 0).size());
+        assertEquals(3, engine.countMatches(List.of("novel"), null, null, null));
+        assertEquals(3, engine.search(List.of("novel"), null, null, null, -1, 0).size());
 
-        // "novel" AND "darcy" is only in book 1
-        List<SearchResult> results = engine.search(List.of("novel", "darcy"), -1, 0);
+        List<SearchResult> results = engine.search(List.of("novel", "darcy"), null, null, null, -1, 0);
         assertEquals(1, results.size());
         assertEquals(1, results.get(0).book_id);
 
-        // "novel" AND "dashwood" is only in book 2
-        results = engine.search(List.of("novel", "dashwood"), -1, 0);
+        results = engine.search(List.of("novel", "dashwood"), null, null, null, -1, 0);
         assertEquals(1, results.size());
         assertEquals(2, results.get(0).book_id);
 
-        // "darcy" AND "dashwood" -> 0 matches
-        assertEquals(0, engine.countMatches(List.of("darcy", "dashwood")));
-        assertTrue(engine.search(List.of("darcy", "dashwood"), -1, 0).isEmpty());
+        assertEquals(0, engine.countMatches(List.of("darcy", "dashwood"), null, null, null));
+        assertTrue(engine.search(List.of("darcy", "dashwood"), null, null, null, -1, 0).isEmpty());
+    }
+
+    @Test
+    void testFilters() throws SQLException {
+        // Buscar "novel" (3 resultados), pero filtrar por author "Shelley" (debería dar 1)
+        List<SearchResult> shelley = engine.search(List.of("novel"), "Shelley", null, null, -1, 0);
+        assertEquals(1, shelley.size());
+        assertEquals(3, shelley.get(0).book_id);
+
+        // Buscar "classic" (3 resultados), pero filtrar por year 1811 (debería dar 1)
+        int matches1811 = engine.countMatches(List.of("classic"), null, null, 1811);
+        assertEquals(1, matches1811);
     }
 
     @Test
     void testEmptyAndAbsentTerms() throws SQLException {
-        assertTrue(engine.search(List.of(), -1, 0).isEmpty());
-        assertEquals(0, engine.countMatches(List.of()));
+        assertTrue(engine.search(List.of(), null, null, null, -1, 0).isEmpty());
+        assertEquals(0, engine.countMatches(List.of(), null, null, null));
 
-        assertTrue(engine.search(List.of("nonexistentword"), -1, 0).isEmpty());
-        assertEquals(0, engine.countMatches(List.of("nonexistentword")));
+        assertTrue(engine.search(List.of("nonexistentword"), null, null, null, -1, 0).isEmpty());
+        assertEquals(0, engine.countMatches(List.of("nonexistentword"), null, null, null));
     }
 
     @Test
     void testPagination() throws SQLException {
-        // "classic" matches all 3 books
-        int total = engine.countMatches(List.of("classic"));
+        int total = engine.countMatches(List.of("classic"), null, null, null);
         assertEquals(3, total);
 
-        // Page 1: limit 2, offset 0
-        List<SearchResult> page1 = engine.search(List.of("classic"), 2, 0);
+        List<SearchResult> page1 = engine.search(List.of("classic"), null, null, null, 2, 0);
         assertEquals(2, page1.size());
         assertEquals(1, page1.get(0).book_id);
         assertEquals(2, page1.get(1).book_id);
 
-        // Page 2: limit 2, offset 2
-        List<SearchResult> page2 = engine.search(List.of("classic"), 2, 2);
+        List<SearchResult> page2 = engine.search(List.of("classic"), null, null, null, 2, 2);
         assertEquals(1, page2.size());
         assertEquals(3, page2.get(0).book_id);
     }
