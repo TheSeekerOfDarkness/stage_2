@@ -35,12 +35,11 @@ public class MetadataStore {
         }
     }
 
-    public void save(Book book) {
+    public void save(Connection connection, Book book) throws SQLException {
         String sql = "INSERT OR REPLACE INTO books (book_id, title, author, language, year, datalake_path) "
             + "VALUES (?, ?, ?, ?, ?, ?)";
 
-        try (Connection connection = DriverManager.getConnection(url);
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, book.bookId);
             statement.setString(2, book.title);
             statement.setString(3, book.author);
@@ -48,8 +47,6 @@ public class MetadataStore {
             statement.setInt(5, book.year);
             statement.setString(6, book.path);
             statement.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
