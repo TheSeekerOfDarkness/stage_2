@@ -87,7 +87,7 @@ public class IngestionTest {
     @Test
     void testAtomicSaveBook() throws IOException {
         Path folder = tempDir.resolve("20261105").resolve("18");
-        App.saveBook(folder, 101, "Test Header", "Test Body");
+        DatalakeStore.saveToFolder(folder, 101, "Test Header", "Test Body");
 
         Path headerFile = folder.resolve("101.header.txt");
         Path bodyFile = folder.resolve("101.body.txt");
@@ -100,6 +100,13 @@ public class IngestionTest {
         // Ensure temp files do not linger
         assertFalse(Files.exists(folder.resolve("101.header.txt.tmp")));
         assertFalse(Files.exists(folder.resolve("101.body.txt.tmp")));
+
+        // Test DatalakeStore queries
+        DatalakeStore store = new DatalakeStore(tempDir.toString());
+        assertTrue(store.isAvailable(101));
+        assertFalse(store.isAvailable(999));
+        assertEquals(1, store.listBooks().size());
+        assertEquals(101, store.listBooks().get(0));
     }
 
     @Test
