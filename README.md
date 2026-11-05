@@ -1,69 +1,68 @@
-# Stage 1: Building the Data Layer - Search Engine Project
+# Stage 2: Building a Service-Oriented Architecture - Search Engine Project
 
 **Big Data — Grado en Ciencia e Ingeniería de Datos (ULPGC)**
 
 ## Overview
 
-This repository implements **Stage 1 (Building the Data Layer)** of the Big Data Search Engine project. The data layer acts as the foundation of the search engine, providing a scalable, organized, and auditable repository for raw and cleaned text, alongside optimized structured datamarts for metadata querying and inverted index retrieval.
+This repository implements **Stage 2 (Building a Service-Oriented Architecture)** of the Big Data Search Engine project. The monolithic data pipeline from Stage 1 has been re-engineered into a distributed, service-oriented architecture (SOA). The system now consists of independent, cooperative microservices built with Java 17 and Javalin, communicating via RESTful APIs and coordinated through a time-based orchestration mechanism.
 
 ---
 
 ## Architecture
 
 ```text
-┌────────────────────────┐      ┌────────────────────────┐
-│  Project Gutenberg     │ ───> │  Crawler & Splitter    │
-└────────────────────────┘      └───────────┬────────────┘
-                                            │
-                    ┌───────────────────────┴───────────────────────┐
-                    ▼                                               ▼
-         ┌─────────────────────┐                         ┌─────────────────────┐
-         │     Datalake        │                         │     Control Layer   │
-         │  (Unstructured)     │                         │  (State Tracking)   │
-         │  YYYYMMDD/HH/*.txt  │                         │  downloaded/indexed │
-         └──────────┬──────────┘                         └─────────────────────┘
-                    │
-                    ▼
-         ┌─────────────────────────────────────────────────────────┐
-         │                        Datamarts                        │
-         ├────────────────────────────┬────────────────────────────┤
-         │       Metadata Store       │       Inverted Index       │
-         │          (SQLite)          │   3 Physical Architectures:│
-         │  books(id, title, author)  │   1. Monolithic (JSON)     │
-         │                            │   2. Hierarchical (Folders)│
-         │                            │   3. Database (MongoDB)    │
-         └────────────────────────────┴────────────────────────────┘
+┌───────────────┐       ┌───────────────────────────┐
+│ P. Gutenberg  │ ───>  │     Ingestion Service     │ (Port 7001)
+└───────────────┘       │  (Downloads & splitting)  │
+                        └─────────────┬─────────────┘
+                                      │
+                                      ▼
+                        ┌───────────────────────────┐
+                        │         Datalake          │
+                        │     (Unstructured)        │
+                        │     YYYYMMDD/HH/*.txt     │
+                        └─────────────┬─────────────┘
+                                      │
+                         [Time-based Coordination]
+                         (Background polling sync)
+                                      │
+                                      ▼
+                        ┌───────────────────────────┐
+                        │     Indexing Service      │ (Port 7002)
+                        │ (Tokenizer & extraction)  │
+                        └─────────────┬─────────────┘
+                                      │
+                                      ▼
+                        ┌───────────────────────────┐
+                        │         Datamarts         │
+                        │       (datamart.db)       │
+                        │  books & inverted_index   │
+                        └─────────────┬─────────────┘
+                                      │
+                                      ▼
+┌───────────────┐       ┌───────────────────────────┐
+│   Front-End   │ <───  │      Search Service       │ (Port 7003)
+│    (User)     │       │ (REST API with filters)   │
+└───────────────┘       └───────────────────────────┘
 ```
 
-### 1. Datalake
+### 1. Microservices
 
-Stores the raw and cleaned book content in an unstructured format, with 3 physical structural designs for benchmark comparison:
+The architecture decomposes the monolithic pipeline into three standalone Java/Javalin microservices, each packaged as an executable fat-JAR:
 
-- **Time-Based Hierarchy** (`datalake/YYYYMMDD/HH/`):
-  - `<BOOK_ID>.header.txt`: Metadata, title, author, release notes.
-  - `<BOOK_ID>.body.txt`: Cleaned body text delimited between Gutenberg markers.
-- **Book-Based Hierarchy** (`datalake_book_based/<BOOK_ID>/`):
-  - Dedicated directory per book: `header.txt` and `body.txt`.
-- **Batch / Range-Based Hierarchy** (`datalake_batch_based/batch_00000_00999/`):
-  - Partitioned into batch folders of 1,000 books to prevent directory exhaustion on massive scale.
+- **Ingestion Service**: Exposes internal HTTP endpoints to download books from Project Gutenberg. It processes the raw text into `header` and `body` files and writes them atomically to the datalake.
+- **Indexing Service**: Coordinates the pipeline by polling the datalake for new, unindexed books. It parses metadata, tokenizes the text (filtering 127 stop words), and safely updates the datamart using SQLite transactions and WAL mode.
+- **Search Service**: Exposes the Front-End-facing API. It allows keyword searching and supports combinatorial filtering (by `author`, `language`, and `year`) and result pagination.
 
-### 2. Control Layer
+### 2. Coordination Mechanism
 
-Maintains state files in `control/` for pipeline auditability and deduplication:
+The system implements a **Time-based Coordination (Hybrid)** mechanism. 
+The `Indexing Service` runs a background `ScheduledExecutorService` that periodically polls the datalake directory structure. It detects newly fully-downloaded books, compares them against the indexed records in the SQLite database, and automatically indexes any pending books. This removes the need for manual indexing triggers while keeping services decoupled.
 
-- `control/downloaded_books_<datalake>.txt`: Ingested book IDs, one file per datalake layout (e.g. `downloaded_books_time_based.txt`).
-- `control/indexed_books_<indexer>.txt`: Indexed book IDs, one file per inverted index (e.g. `indexed_books_monolithic.txt`). Not stored in git, like the indexes.
+### 3. Storage Layer
 
-### 3. Datamarts
-
-Structured, queryable data stores:
-
-- **Metadata Store (`datamarts/metadata.db`)**: SQLite database storing parsed metadata (`book_id`, `title`, `author`, `language`, `release_date`, `datalake_path`).
-- **Inverted Index (3 Implementations)**:
-  1. **Single Monolithic File**: `datamarts/inverted_index.json`
-  2. **Hierarchical Folder Structure**: `datamarts/inverted_index/{A..Z}/{term}.txt`
-  3. **NoSQL Database**: MongoDB (`inverted_index` collection) with embedded SQLite fallback (`datamarts/inverted_index.db`).
-- **Text Processing & Stop Words**: Includes a standard stop-word filter (Lucene/NLTK) and positional tracking for phrase searching.
+- **Datalake (`datalake/`)**: Preserves the time-based hierarchical structure (`YYYYMMDD/HH/`) selected as the optimal physical design during Stage 1. 
+- **Datamart (`datamarts/datamart.db`)**: Unified SQLite database operating in `WAL` (Write-Ahead Logging) mode to allow concurrent reads from the Search Service while the Indexing Service writes. It contains two tables: `books` (metadata) and `inverted_index` (terms and book references).
 
 ---
 
@@ -71,49 +70,21 @@ Structured, queryable data stores:
 
 ```text
 .
-├── control/
-│   ├── downloaded_books_time_based.txt  # State tracking of ingested books
-│   └── indexed_books_<indexer>.txt      # State tracking of indexed books (auto-generated)
-├── datalake/
-│   └── 20260916/
-│       └── 13/
-│           ├── 1342.body.txt       # Pride and Prejudice (Jane Austen)
-│           └── 1342.header.txt
-├── datamarts/
-│   ├── metadata.db                 # SQLite metadata catalog (auto-generated)
-│   ├── inverted_index.json         # Monolithic index (auto-generated)
-│   └── inverted_index/             # Hierarchical folder index (auto-generated)
-├── src/
-│   ├── __init__.py
-│   ├── config.py                   # Global constants and path configurations
-│   ├── control/
-│   │   ├── __init__.py
-│   │   └── tracker.py              # Control layer state management
-│   ├── crawler/
-│   │   ├── __init__.py
-│   │   └── downloader.py           # HTTP Gutenberg fetcher and text splitter
-│   ├── datalake/
-│   │   ├── __init__.py
-│   │   └── time_based.py           # Time-based datalake storage
-│   ├── datamart/
-│   │   ├── __init__.py
-│   │   ├── metadata.py             # Header parser & SQLite metadata store
-│   │   ├── tokenizer.py            # Tokenizer with stop-word filter & positions
-│   │   └── inverted_index/
-│   │       ├── __init__.py
-│   │       ├── base.py             # Inverted index abstract base class
-│   │       ├── monolithic.py       # Monolithic JSON implementation
-│   │       ├── hierarchical.py     # Hierarchical folder implementation
-│   │       └── database.py         # MongoDB / SQLite document store
-│   └── pipeline.py                 # End-to-end pipeline orchestrator
-├── tests/
-│   ├── test_ingestion.py           # Datalake and ingestion tests
-│   ├── test_metadata.py            # Metadata extraction and SQLite tests
-│   ├── test_tokenizer.py           # Tokenizer and stop words tests
-│   └── test_inverted_index.py      # All 3 inverted index backends tests
-├── docker-compose.yml              # Local MongoDB 7 service
-├── main.py                         # CLI entry point (ingest, index, search, status)
-├── requirements.txt
+├── datalake/                       # Unstructured raw text storage (Time-based)
+├── datamarts/                      # Structured SQL storage (datamart.db)
+├── ingestion-service/              # Maven project for Ingestion
+│   ├── pom.xml
+│   └── src/main/java/.../ingestion/App.java
+├── indexing-service/               # Maven project for Indexing
+│   ├── pom.xml
+│   ├── src/main/java/.../indexing/App.java
+│   └── src/test/java/.../indexing/IndexerBenchmark.java
+├── search-service/                 # Maven project for Search
+│   ├── pom.xml
+│   ├── src/main/java/.../search/App.java
+│   └── src/test/java/.../search/SearchBenchmark.java
+├── openapi.yaml                    # API Specification for all services
+├── docker-compose.yml              # Optional containerization config
 └── README.md
 ```
 
@@ -122,148 +93,83 @@ Structured, queryable data stores:
 ## Setup & Installation
 
 ### Requirements
+- Java 17+ (JDK)
+- Apache Maven (3.8+)
 
-- Python 3.10+
-- Optional: Docker (for MongoDB backend)
-
-### Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### (Optional) Start MongoDB for NoSQL Indexer
+### Build the Microservices
+Navigate to the root directory and package the three independent fat-JARs using Maven:
 
 ```bash
-docker compose up -d
-```
-
-*(If MongoDB is not running, the database indexer will transparently use an embedded SQLite document store at `datamarts/inverted_index.db`)*.
-
----
-
-## Usage
-
-The repository already includes 106 downloaded books in `datalake/`, so you can skip step 1: run `python main.py index` once and then search with `python main.py search "<words>"`.
-
-### 1. Ingesting Books
-
-Download and save a book to the datalake:
-
-```bash
-# Ingest single book (e.g. Pride and Prejudice, ID 1342)
-python main.py ingest --book-id 1342
-
-# Ingest multiple books
-python main.py ingest --book-id 1342 11 84
-```
-
-### 2. Indexing Books into Datamarts
-
-Extract metadata to SQLite and build inverted index:
-
-```bash
-# Index pending books using Monolithic JSON backend
-python main.py index --indexer monolithic
-
-# Index using Hierarchical Folder backend
-python main.py index --indexer hierarchical
-
-# Index using Database backend (MongoDB / SQLite)
-python main.py index --indexer database
-```
-
-### 3. Searching the Datamarts
-
-Search terms across the inverted index and resolve book metadata:
-
-```bash
-python main.py search "Darcy Elizabeth" --indexer monolithic
-python main.py search "adventure island" --indexer hierarchical
-```
-
-### 4. Automated Execution (Run Command)
-
-Run pipeline steps automatically (indexes pending downloaded books or downloads new random books if none pending):
-
-```bash
-python main.py run --steps 10
-```
-
-### 5. Inspect Pipeline Status
-
-View ingestion counts, indexed records, pending queue, and datalake entries:
-
-```bash
-python main.py status
+mvn -f ingestion-service/pom.xml clean package
+mvn -f indexing-service/pom.xml clean package
+mvn -f search-service/pom.xml clean package
 ```
 
 ---
 
-## Multi-Language Engines
+## Usage (Running the SOA)
 
-All three languages (Python, Java, Rust) feature parity across tokenization (127 stop words), datalake partitioning, inverted indexing, and keyword search.
+Because the services share the `datalake` and `datamarts` folders, **all services must be executed from the repository's root directory** in separate terminal windows.
 
-### Java Engine
+### 1. Start the Services
 
-Compile and run the Java engine:
-
+**Terminal 1 (Ingestion Service - Port 7001):**
 ```bash
-# Compile
-javac -d languages/java/build languages/java/src/searchengine/*.java
-
-# Index datalake books
-java -cp languages/java/build searchengine.Main index --indexer monolithic
-
-# Search
-java -cp languages/java/build searchengine.Main search "war peace"
+java -jar ingestion-service/target/ingestion-service-1.0.0.jar
 ```
 
-### Rust Engine
-
-Build and run the native Rust engine:
-
+**Terminal 2 (Indexing Service & Coordinator - Port 7002):**
 ```bash
-# Build release binary
-cargo build --release --manifest-path languages/rust/Cargo.toml
+java -jar indexing-service/target/indexing-service-1.0.0.jar
+```
 
-# Index datalake books
-./languages/rust/target/release/searchengine_rust index --indexer monolithic
+**Terminal 3 (Search Service - Port 7003):**
+```bash
+java -jar search-service/target/search-service-1.0.0.jar
+```
 
-# Search
-./languages/rust/target/release/searchengine_rust search "war peace"
+### 2. Pipeline Execution Example
+
+**A. Ingest a new book:**
+Trigger the ingestion service to download a book (e.g., *Alice in Wonderland*, ID: 11):
+```bash
+curl -X POST http://localhost:7001/ingest/11
+```
+
+**B. Automatic Coordination:**
+Wait up to 30 seconds. The background coordinator in the Indexing Service will automatically detect the new book in the datalake, extract its metadata, build the inverted index, and safely commit it to `datamart.db`. Check the status:
+```bash
+curl http://localhost:7002/index/status/11
+```
+
+**C. Search via Front-End API:**
+Query the search service using keywords and optional filters (pagination, language, author, year):
+```bash
+curl "http://localhost:7003/search?q=alice&language=en&limit=5"
 ```
 
 ---
 
-## Benchmarking & Empirical Evaluation
+## API Specification
 
-Run the automated statistical benchmark suite (2 warmup rounds + multi-trial measurements with Mean, StdDev, and 95% Confidence Intervals across Python, Java, and Rust):
-
-Requirements: Java (JDK 17+), Rust (cargo) and MongoDB running (`docker compose up -d`). The script compiles the Java and Rust engines by itself. A full run takes about 2 hours, mostly because of the hierarchical index. Note: the MongoDB benchmark replaces the contents of the `inverted_index` collection.
-
-```bash
-# Run full benchmark suite (also generates the report and the figures)
-python benchmarks/run_benchmarks.py
-
-# Only regenerate the figures from benchmarks/results.json
-python benchmarks/generate_plots.py
-```
-
-Results are saved to `benchmarks/results.json` (raw data) and `benchmarks/BENCHMARK_REPORT.md` (tables). They cover: datalake write, lookup, incremental detection, storage and recovery; inverted index build, query, update, memory, disk and scalability; and the SQLite metadata store.
-
-Output charts are saved to `reports/figures/`:
-
-- `datalake_write_speed.png`
-- `inverted_index_build_speed.png`
-- `query_latency.png`
+The full API contract for both internal (Service-to-Service) and external (Front-End) interactions is documented in the **`openapi.yaml`** file included in the root of the repository. It can be visualized using Swagger UI or any OpenAPI-compatible viewer.
 
 ---
 
-## Running Tests
+## Benchmarking & Tests (JMH)
 
-Run the full automated test suite with pytest:
+Stage 2 replaces Python benchmarks with standard Java testing and the **Java Microbenchmark Harness (JMH)** to evaluate isolated computational efficiency and concurrency behavior.
 
+### 1. Running Unit Tests
+Execute standard JUnit tests for metadata parsing, tokenization, and SQL engine logic:
 ```bash
-pytest tests/ -v
+mvn -f indexing-service/pom.xml test
+mvn -f search-service/pom.xml test
+```
+
+### 2. Running JMH Microbenchmarks
+Microbenchmarks measure pure algorithmic throughput (e.g., indexing speed, query latency). You can run them directly from VSCode (by clicking "Run Benchmark" over the class declaration) or via Maven:
+```bash
+mvn -f indexing-service/pom.xml test -Dtest=IndexerBenchmark
+mvn -f search-service/pom.xml test -Dtest=SearchBenchmark
 ```
