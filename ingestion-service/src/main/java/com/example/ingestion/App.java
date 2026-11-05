@@ -5,10 +5,6 @@ import io.javalin.Javalin;
 import io.javalin.http.Context;
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,28 +19,41 @@ import java.util.Map;
 
 public class App {
     private static final Gson gson = new Gson();
-    private static final String datalakePath = System.getenv().getOrDefault("DATALAKE_PATH", "datalake");
-    private static final String START_MARKER = "*** START OF THE PROJECT GUTENBERG EBOOK";
-    private static final String END_MARKER = "*** END OF THE PROJECT GUTENBERG EBOOK";
+    private static String datalakePath = System.getenv().getOrDefault("DATALAKE_PATH", "datalake");
+    private static GutenbergDownloader downloader = new GutenbergDownloader();
+
+
+    public static void setDownloader(GutenbergDownloader customDownloader) {
+        downloader = customDownloader;
+    }
+
+    public static void setDatalakePath(String path) {
+        datalakePath = path;
+    }
+
+    public static Javalin createApp() {
+        Javalin app = Javalin.create(config -> {
+            config.http.defaultContentType = "application/json";
+        });
+
+    app.get("/status",ctx->
+
+    {
+        Map<String, Object> status = Map.of(
+                "service", "ingestion-service",
+                "status", "running");
+        ctx.result(gson.toJson(status));
+    });
+
+    app.get("/ingest/list",App::handleList);app.get("/ingest/status/{book_id}",App::handleStatus);app.post("/ingest/{book_id}",App::handleIngest);
+
+    return app;
+    }
 
     public static void main(String[] args) {
         int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "7001"));
-
-        Javalin app = Javalin.create(config -> {
-            config.http.defaultContentType = "application/json";
-        }).start(port);
-
-        app.get("/status", ctx -> {
-            Map<String, Object> status = Map.of(
-                "service", "ingestion-service",
-                "status", "running"
-            );
-            ctx.result(gson.toJson(status));
-        });
-
-        app.get("/ingest/list", App::handleList);
-        app.get("/ingest/status/{book_id}", App::handleStatus);
-        app.post("/ingest/{book_id}", App::handleIngest);
+        datalakePath = System.getenv().getOrDefault("DATALAKE_PATH", "datalake");
+        createApp().start(port);
     }
 
     private static void handleList(Context ctx) {
@@ -95,22 +104,26 @@ public class App {
 
         String text;
         try {
-            text = downloadBook(bookId);
+            text = downloader.download(bookId);
+        } catch (GutenbergDownloader.BookNotFoundException e) {
+            sendError(ctx, 404, e.getMessage());
+            return;
+        } catch (GutenbergDownloader.DownloaderException e) {
+            int code = e.getStatusCode() >= 400 && e.getStatusCode() < 600 ? e.getStatusCode() : 502;
+            sendError(ctx, code, e.getMessage());
+            return;
         } catch (Exception e) {
-            sendError(ctx, 502, "Could not download book " + bookId + " from Project Gutenberg");
+            sendError(ctx, 502, "Could not download book " + bookId + " from Project Gutenberg: " + e.getMessage());
             return;
         }
 
-        int start = text.indexOf(START_MARKER);
-        int end = text.indexOf(END_MARKER);
-        int bodyStart = text.indexOf("\n", start) + 1;
-        if (start == -1 || end == -1 || end < start || bodyStart > end) {
-            sendError(ctx, 422, "Book " + bookId + " does not contain the Project Gutenberg markers");
+        BookSplitter.SplitResult split;
+        try {
+            split = BookSplitter.split(text);
+        } catch (IllegalArgumentException e) {
+            sendError(ctx, 422, "Book " + bookId + " does not contain valid Gutenberg markers: " + e.getMessage());
             return;
         }
-
-        String header = text.substring(0, start).trim();
-        String body = text.substring(bodyStart, end).trim();
 
         LocalDateTime now = LocalDateTime.now();
         String date = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
@@ -118,9 +131,9 @@ public class App {
         Path folder = Paths.get(datalakePath, date, hour);
 
         try {
-            saveBook(folder, bookId, header, body);
+            saveBook(folder, bookId, split.header, split.body);
         } catch (IOException e) {
-            sendError(ctx, 500, "Could not save book " + bookId);
+            sendError(ctx, 500, "Could not save book " + bookId + ": " + e.getMessage());
             return;
         }
 
@@ -131,26 +144,8 @@ public class App {
         ctx.result(gson.toJson(response));
     }
 
-    private static String downloadBook(int bookId) throws Exception {
-        String url = "https://www.gutenberg.org/cache/epub/" + bookId + "/pg" + bookId + ".txt";
 
-        HttpClient client = HttpClient.newBuilder()
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build();
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(url))
-            .header("User-Agent", "ULPGC-BigData-Bot/1.0 (Educational Search Engine)")
-            .build();
-
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        if (response.statusCode() != 200) {
-            throw new IOException("Project Gutenberg returned " + response.statusCode());
-        }
-
-        return response.body();
-    }
-
-    private static void saveBook(Path folder, int bookId, String header, String body) throws IOException {
+    public static void saveBook(Path folder, int bookId, String header, String body) throws IOException {
         Files.createDirectories(folder);
 
         Path headerTemp = folder.resolve(bookId + ".header.txt.tmp");
@@ -168,7 +163,7 @@ public class App {
             if (bookId > 0) {
                 return bookId;
             }
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException ignored) {
         }
 
         sendError(ctx, 400, "book_id must be a positive integer");
@@ -186,7 +181,10 @@ public class App {
         for (File bodyFile : listBodyFiles()) {
             String name = bodyFile.getName();
             String id = name.substring(0, name.length() - ".body.txt".length());
-            books.add(Integer.parseInt(id));
+            try {
+                books.add(Integer.parseInt(id));
+            } catch (NumberFormatException ignored) {
+            }
         }
 
         Collections.sort(books);
