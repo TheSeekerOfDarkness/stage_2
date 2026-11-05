@@ -31,8 +31,10 @@ public class SearchEngineTest {
         // Populate sample data in books and inverted_index
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath)) {
             try (Statement stmt = conn.createStatement()) {
-                stmt.execute("INSERT INTO books VALUES (1, 'Pride and Prejudice', 'Jane Austen', 'en', 1813, 'datalake/1')");
-                stmt.execute("INSERT INTO books VALUES (2, 'Sense and Sensibility', 'Jane Austen', 'en', 1811, 'datalake/2')");
+                stmt.execute(
+                        "INSERT INTO books VALUES (1, 'Pride and Prejudice', 'Jane Austen', 'en', 1813, 'datalake/1')");
+                stmt.execute(
+                        "INSERT INTO books VALUES (2, 'Sense and Sensibility', 'Jane Austen', 'en', 1811, 'datalake/2')");
                 stmt.execute("INSERT INTO books VALUES (3, 'Frankenstein', 'Mary Shelley', 'en', 1818, 'datalake/3')");
             }
 
