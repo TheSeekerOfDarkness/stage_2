@@ -14,20 +14,26 @@ public class InvertedIndex {
 
     public InvertedIndex(String dbPath) {
         File folder = new File(dbPath).getAbsoluteFile().getParentFile();
-        folder.mkdirs();
+        if (folder != null) {
+            folder.mkdirs();
+        }
         this.url = "jdbc:sqlite:" + dbPath;
         createTable();
     }
 
     private void createTable() {
-        String sql = "CREATE TABLE IF NOT EXISTS inverted_index ("
+        String sqlTable = "CREATE TABLE IF NOT EXISTS inverted_index ("
             + "term TEXT NOT NULL, "
             + "book_id INTEGER NOT NULL, "
             + "PRIMARY KEY (term, book_id))";
+        String sqlIndex = "CREATE INDEX IF NOT EXISTS idx_inverted_book_id ON inverted_index(book_id)";
 
         try (Connection connection = DriverManager.getConnection(url);
              Statement statement = connection.createStatement()) {
-            statement.execute(sql);
+            statement.execute("PRAGMA journal_mode=WAL;");
+            statement.execute("PRAGMA busy_timeout=60000;");
+            statement.execute(sqlTable);
+            statement.execute(sqlIndex);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -41,7 +47,8 @@ public class InvertedIndex {
             delete.executeUpdate();
         }
 
-        try (PreparedStatement insert = connection.prepareStatement("INSERT INTO inverted_index (term, book_id) VALUES (?, ?)")) {
+        try (PreparedStatement insert = connection
+                .prepareStatement("INSERT INTO inverted_index (term, book_id) VALUES (?, ?)")) {
             for (String term : terms) {
                 insert.setString(1, term);
                 insert.setInt(2, bookId);
