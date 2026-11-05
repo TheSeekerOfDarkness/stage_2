@@ -6,10 +6,15 @@ import io.javalin.http.Context;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class App {
     private static final Gson gson = new Gson();
     private static Indexer indexer;
+    private static final boolean autoSyncEnabled = Boolean.parseBoolean(System.getenv().getOrDefault("AUTO_SYNC", "true"));
+    private static final int syncIntervalSeconds = Integer.parseInt(System.getenv().getOrDefault("SYNC_INTERVAL_SECONDS", "30"));
 
     public static void main(String[] args) {
         int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "7002"));
@@ -18,6 +23,21 @@ public class App {
             System.getenv().getOrDefault("DB_PATH", "datamarts/datamart.db"));
 
         indexer = new Indexer(datalakePath, datamartPath);
+
+        if (autoSyncEnabled) {
+            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+            scheduler.scheduleWithFixedDelay(() -> {
+                try {
+                    Map<String, Object> summary = indexer.updateAll();
+                    List<?> indexed = (List<?>) summary.get("indexed_books");
+                    if (indexed != null && !indexed.isEmpty()) {
+                        System.out.println("[COORDINATOR] Auto-indexed " + indexed.size() + " new books.");
+                    }
+                } catch (Exception e) {
+                    System.err.println("[COORDINATOR] Error auto-indexing: " + e.getMessage());
+                }
+            }, 5, syncIntervalSeconds, TimeUnit.SECONDS);
+        }
 
         Javalin app = Javalin.create(config -> {
             config.http.defaultContentType = "application/json";
@@ -40,9 +60,7 @@ public class App {
 
     private static void handleStatus(Context ctx) {
         int bookId = readBookId(ctx);
-        if (bookId == -1) {
-            return;
-        }
+        if (bookId == -1) return;
 
         Map<String, Object> response = new HashMap<>();
         response.put("book_id", bookId);
@@ -59,9 +77,7 @@ public class App {
 
     private static void handleIndex(Context ctx) {
         int bookId = readBookId(ctx);
-        if (bookId == -1) {
-            return;
-        }
+        if (bookId == -1) return;
 
         try {
             boolean success = indexer.update(bookId);
@@ -100,9 +116,7 @@ public class App {
 
     private static void handleBook(Context ctx) {
         int bookId = readBookId(ctx);
-        if (bookId == -1) {
-            return;
-        }
+        if (bookId == -1) return;
 
         try {
             Book book = indexer.getMetadata().get(bookId);
@@ -137,12 +151,8 @@ public class App {
     private static int readBookId(Context ctx) {
         try {
             int bookId = Integer.parseInt(ctx.pathParam("book_id"));
-            if (bookId > 0) {
-                return bookId;
-            }
-        } catch (NumberFormatException ignored) {
-        }
-
+            if (bookId > 0) return bookId;
+        } catch (NumberFormatException ignored) {}
         sendError(ctx, 400, "book_id must be a positive integer");
         return -1;
     }
