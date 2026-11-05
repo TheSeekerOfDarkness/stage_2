@@ -1,0 +1,135 @@
+openapi: 3.0.3
+info:
+  title: Search Engine Service-Oriented Architecture API
+  description: Stage 2 API specification for Ingestion, Indexing, and Search services.
+  version: 1.0.0
+paths:
+  /ingest/list:
+    get:
+      summary: (Internal) List all downloaded books in the datalake
+      responses:
+        '200':
+          description: A list of book IDs
+  /ingest/status/{book_id}:
+    get:
+      summary: (Internal) Check if a specific book is available in the datalake
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Status of the book
+        '404':
+          description: Book not found
+  /ingest/{book_id}:
+    post:
+      summary: (Internal) Download a book from Project Gutenberg and save it
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Book successfully downloaded or already exists
+        '422':
+          description: Missing Gutenberg markers
+        '502':
+          description: Download failed
+  /index/status/{book_id}:
+    get:
+      summary: (Internal) Check if a specific book is indexed
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Book is indexed
+        '404':
+          description: Book is not indexed
+  /index/{book_id}:
+    post:
+      summary: (Internal) Index a specific book from the datalake
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Book successfully indexed
+        '404':
+          description: Book not found in datalake
+  /index/list:
+    get:
+      summary: (Internal) List all indexed book IDs
+      responses:
+        '200':
+          description: A list of indexed book IDs
+  /index/book/{book_id}:
+    get:
+      summary: (Internal) Retrieve metadata of an indexed book
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Book metadata
+        '404':
+          description: Book not indexed
+  /index/all:
+    post:
+      summary: (Internal) Index all available books in the datalake
+      responses:
+        '200':
+          description: Summary of the indexing process
+  /search:
+    get:
+      summary: (Front-End) Search for books by keyword with optional filters
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: author
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: language
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Search results
+        '400':
+          description: Missing query parameter or invalid format
