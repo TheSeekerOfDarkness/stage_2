@@ -1,7 +1,0 @@
-com\example\indexing\Indexer.class
-com\example\indexing\Book.class
-com\example\indexing\Tokenizer.class
-com\example\indexing\App.class
-com\example\indexing\MetadataStore.class
-com\example\indexing\InvertedIndex.class
-com\example\indexing\HeaderParser.class
