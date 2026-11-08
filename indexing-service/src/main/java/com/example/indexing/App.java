@@ -52,10 +52,10 @@ public class App {
         });
 
         app.get("/index/status/{book_id}", App::handleStatus);
+        app.post("/index/all", App::handleIndexAll);
         app.post("/index/{book_id}", App::handleIndex);
         app.get("/index/list", App::handleList);
         app.get("/index/book/{book_id}", App::handleBook);
-        app.post("/index/all", App::handleIndexAll);
     }
 
     private static void handleStatus(Context ctx) {

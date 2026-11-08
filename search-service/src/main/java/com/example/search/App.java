@@ -52,6 +52,35 @@ public class App {
             }
         }
 
+        int limit = 20;
+        int offset = 0;
+        String limitParam = ctx.queryParam("limit");
+        if (limitParam != null) {
+            try {
+                limit = Integer.parseInt(limitParam);
+            } catch (NumberFormatException e) {
+                sendError(ctx, 400, "Parameter 'limit' must be a valid integer");
+                return;
+            }
+            if (limit < 1 || limit > 100) {
+                sendError(ctx, 400, "Parameter 'limit' must be between 1 and 100");
+                return;
+            }
+        }
+        String offsetParam = ctx.queryParam("offset");
+        if (offsetParam != null) {
+            try {
+                offset = Integer.parseInt(offsetParam);
+            } catch (NumberFormatException e) {
+                sendError(ctx, 400, "Parameter 'offset' must be a valid integer");
+                return;
+            }
+            if (offset < 0) {
+                sendError(ctx, 400, "Parameter 'offset' must be 0 or greater");
+                return;
+            }
+        }
+
         List<String> tokens = Tokenizer.tokenize(query);
         if (tokens.isEmpty()) {
             Map<String, Object> response = new LinkedHashMap<>();
@@ -60,15 +89,6 @@ public class App {
             response.put("results", Collections.emptyList());
             ctx.result(gson.toJson(response));
             return;
-        }
-
-        int limit = -1;
-        int offset = 0;
-        if (ctx.queryParam("limit") != null) {
-            try { limit = Integer.parseInt(ctx.queryParam("limit")); } catch (NumberFormatException ignored) {}
-        }
-        if (ctx.queryParam("offset") != null) {
-            try { offset = Integer.parseInt(ctx.queryParam("offset")); } catch (NumberFormatException ignored) {}
         }
 
         try {

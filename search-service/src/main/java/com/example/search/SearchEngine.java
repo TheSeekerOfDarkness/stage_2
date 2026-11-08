@@ -31,6 +31,18 @@ public class SearchEngine {
              Statement stmt = connection.createStatement()) {
             stmt.execute("PRAGMA journal_mode=WAL;");
             stmt.execute("PRAGMA busy_timeout=60000;");
+            stmt.execute("CREATE TABLE IF NOT EXISTS books ("
+                    + "book_id INTEGER PRIMARY KEY, "
+                    + "title TEXT NOT NULL, "
+                    + "author TEXT NOT NULL, "
+                    + "language TEXT, "
+                    + "year INTEGER, "
+                    + "datalake_path TEXT)");
+            stmt.execute("CREATE TABLE IF NOT EXISTS inverted_index ("
+                    + "term TEXT NOT NULL, "
+                    + "book_id INTEGER NOT NULL, "
+                    + "PRIMARY KEY (term, book_id))");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_inverted_book_id ON inverted_index(book_id)");
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
