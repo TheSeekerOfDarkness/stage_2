@@ -1,0 +1,7 @@
+com\example\ingestion\BookSplitter.class
+com\example\ingestion\GutenbergDownloader$BookNotFoundException.class
+com\example\ingestion\BookSplitter$SplitResult.class
+com\example\ingestion\DatalakeStore.class
+com\example\ingestion\App.class
+com\example\ingestion\GutenbergDownloader.class
+com\example\ingestion\GutenbergDownloader$DownloaderException.class

@@ -1,0 +1,1 @@
+JMH S 34 com.example.search.SearchBenchmark S 77 com.example.search.jmh_generated.SearchBenchmark_benchmarkSearchQuery_jmhTest S 20 benchmarkSearchQuery S 11 AverageTime E A 1 1 1 E I 1 3 T 3 1 s E I 1 5 T 3 1 s E I 1 1 E E E E E E U 12 MILLISECONDS E E 
