@@ -1,0 +1,231 @@
+{
+ "e1_indexado": {
+  "books": 107,
+  "1_cliente": {
+   "elapsed_s": 49.11,
+   "books_per_s": 2.18,
+   "errors": 0,
+   "lat_mean_ms": 459,
+   "lat_p95_ms": 883,
+   "books_in_db": 107,
+   "index_rows": 769838,
+   "distinct_terms": 195879,
+   "db_mb": 39.9,
+   "resources": {
+    "indexing": {
+     "cpu_avg_pct_of_core": 90.3,
+     "cpu_max_pct_of_core": 475.0,
+     "rss_avg_mb": 259.0,
+     "rss_max_mb": 383.0
+    },
+    "host_cpu_avg_pct": 35.3,
+    "host_cpu_max_pct": 93.0
+   }
+  },
+  "reindex_1_cliente": {
+   "elapsed_s": 96.5,
+   "books_per_s": 1.11,
+   "errors": 0,
+   "books_in_db": 107,
+   "index_rows_after": 769838,
+   "rows_before": 769838
+  },
+  "4_clientes": {
+   "elapsed_s": 40.7,
+   "books_per_s": 2.63,
+   "errors": 0,
+   "lat_mean_ms": 1234,
+   "lat_p95_ms": 3479,
+   "books_in_db": 107,
+   "index_rows": 769838,
+   "distinct_terms": 195879,
+   "db_mb": 39.9,
+   "resources": {
+    "indexing": {
+     "cpu_avg_pct_of_core": 119.7,
+     "cpu_max_pct_of_core": 500.0,
+     "rss_avg_mb": 270.4,
+     "rss_max_mb": 347.9
+    },
+    "host_cpu_avg_pct": 45.3,
+    "host_cpu_max_pct": 93.6
+   }
+  }
+ },
+ "e2_e3_busqueda": {
+  "1_replica_1_clientes": {
+   "requests": 2000,
+   "elapsed_s": 51.6,
+   "req_per_s": 39,
+   "lat_p50_ms": 25.4,
+   "lat_p95_ms": 29.5,
+   "lat_p99_ms": 35.4,
+   "errors": 0,
+   "resources": {
+    "search": {
+     "cpu_avg_pct_of_core": 56.8,
+     "cpu_max_pct_of_core": 162.5,
+     "rss_avg_mb": 179.4,
+     "rss_max_mb": 223.7
+    },
+    "host_cpu_avg_pct": 42.3,
+    "host_cpu_max_pct": 87.4
+   }
+  },
+  "1_replica_4_clientes": {
+   "requests": 2000,
+   "elapsed_s": 15.27,
+   "req_per_s": 131,
+   "lat_p50_ms": 23.6,
+   "lat_p95_ms": 67.2,
+   "lat_p99_ms": 91.6,
+   "errors": 0,
+   "resources": {
+    "search": {
+     "cpu_avg_pct_of_core": 125.6,
+     "cpu_max_pct_of_core": 287.8,
+     "rss_avg_mb": 229.4,
+     "rss_max_mb": 252.8
+    },
+    "host_cpu_avg_pct": 45.9,
+    "host_cpu_max_pct": 78.3
+   }
+  },
+  "1_replica_8_clientes": {
+   "requests": 2000,
+   "elapsed_s": 9.16,
+   "req_per_s": 218,
+   "lat_p50_ms": 21.2,
+   "lat_p95_ms": 99.8,
+   "lat_p99_ms": 158.4,
+   "errors": 0,
+   "resources": {
+    "search": {
+     "cpu_avg_pct_of_core": 180.5,
+     "cpu_max_pct_of_core": 381.2,
+     "rss_avg_mb": 238.4,
+     "rss_max_mb": 251.5
+    },
+    "host_cpu_avg_pct": 65.0,
+    "host_cpu_max_pct": 89.9
+   }
+  },
+  "1_replica_16_clientes": {
+   "requests": 2000,
+   "elapsed_s": 6.31,
+   "req_per_s": 317,
+   "lat_p50_ms": 25.1,
+   "lat_p95_ms": 145.8,
+   "lat_p99_ms": 218.3,
+   "errors": 0,
+   "resources": {
+    "search": {
+     "cpu_avg_pct_of_core": 241.3,
+     "cpu_max_pct_of_core": 418.7,
+     "rss_avg_mb": 237.9,
+     "rss_max_mb": 241.9
+    },
+    "host_cpu_avg_pct": 83.6,
+    "host_cpu_max_pct": 100.0
+   }
+  },
+  "2_replicas_4_clientes": {
+   "requests": 2000,
+   "elapsed_s": 17.4,
+   "req_per_s": 115,
+   "lat_p50_ms": 26.0,
+   "lat_p95_ms": 72.7,
+   "lat_p99_ms": 102.8,
+   "errors": 0,
+   "resources": {
+    "search_7003": {
+     "cpu_avg_pct_of_core": 64.6,
+     "cpu_max_pct_of_core": 312.5,
+     "rss_avg_mb": 234.3,
+     "rss_max_mb": 249.9
+    },
+    "search_7004": {
+     "cpu_avg_pct_of_core": 88.1,
+     "cpu_max_pct_of_core": 193.8,
+     "rss_avg_mb": 131.6,
+     "rss_max_mb": 185.7
+    },
+    "host_cpu_avg_pct": 55.1,
+    "host_cpu_max_pct": 81.7
+   }
+  },
+  "2_replicas_8_clientes": {
+   "requests": 2000,
+   "elapsed_s": 9.87,
+   "req_per_s": 203,
+   "lat_p50_ms": 22.4,
+   "lat_p95_ms": 102.3,
+   "lat_p99_ms": 141.9,
+   "errors": 0,
+   "resources": {
+    "search_7003": {
+     "cpu_avg_pct_of_core": 84.4,
+     "cpu_max_pct_of_core": 181.2,
+     "rss_avg_mb": 233.3,
+     "rss_max_mb": 236.5
+    },
+    "search_7004": {
+     "cpu_avg_pct_of_core": 103.7,
+     "cpu_max_pct_of_core": 206.2,
+     "rss_avg_mb": 196.8,
+     "rss_max_mb": 221.1
+    },
+    "host_cpu_avg_pct": 67.3,
+    "host_cpu_max_pct": 97.6
+   }
+  },
+  "2_replicas_16_clientes": {
+   "requests": 2000,
+   "elapsed_s": 6.47,
+   "req_per_s": 309,
+   "lat_p50_ms": 26.3,
+   "lat_p95_ms": 152.5,
+   "lat_p99_ms": 269.7,
+   "errors": 0,
+   "resources": {
+    "search_7003": {
+     "cpu_avg_pct_of_core": 114.3,
+     "cpu_max_pct_of_core": 231.3,
+     "rss_avg_mb": 236.5,
+     "rss_max_mb": 238.9
+    },
+    "search_7004": {
+     "cpu_avg_pct_of_core": 131.5,
+     "cpu_max_pct_of_core": 250.0,
+     "rss_avg_mb": 217.9,
+     "rss_max_mb": 220.2
+    },
+    "host_cpu_avg_pct": 70.8,
+    "host_cpu_max_pct": 98.6
+   }
+  }
+ },
+ "e4_coordinacion": {
+  "intervalo_s": 30,
+  "runs": [
+   {
+    "book": 1661,
+    "ingest_http": 200,
+    "ingest_s": 3.27,
+    "espera_hasta_indexado_s": 6.1
+   },
+   {
+    "book": 98,
+    "ingest_http": 200,
+    "ingest_s": 1.47,
+    "espera_hasta_indexado_s": 111.1
+   },
+   {
+    "book": 2554,
+    "ingest_http": 200,
+    "ingest_s": 2.93,
+    "espera_hasta_indexado_s": null
+   }
+  ]
+ }
+}

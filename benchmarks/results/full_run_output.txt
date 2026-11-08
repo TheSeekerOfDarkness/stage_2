@@ -1,0 +1,41 @@
+[0s] == BUILD con pruebas ==
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+[15s] ingestion build: 15s
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+[31s] indexing build: 16s
+[INFO] BUILD FAILURE
+[37s] search build: 6s
+[37s] == JMH ==
+IndexerBenchmark.benchmarkIndexSingleBook  thrpt   10  11,383 ± 1,410  ops/s
+[64s] indexing jmh hecho
+Exception in thread "main" java.lang.RuntimeException: ERROR: Unable to find the resource: /META-INF/BenchmarkList
+[72s] search jmh hecho
+[72s] == SERVICIOS ==
+status 7001 => {"status":"running","service":"ingestion-service"} [HTTP 200 0.127084s]
+status 7002 => {"service":"indexing-service","status":"running"} [HTTP 200 0.134924s]
+status 7003 => {"status":"running","service":"search-service"} [HTTP 200 0.133255s]
+ingest list => {"count":106,"books":[11,84,727,1283,1315,1342,2334,2701,3254,5257,5910,6314,6511,6836,8770,9060,10685,12130,13258,14613,14791,14853,15092,18200,18622,18646,18787,20116,2
+ingest status 1342 => {"book_id":1342,"status":"available"} [HTTP 200 0.024047s]
+ingest POST 1342 (ya existe) => {"path":"<tmp>/run/datalake/20260916/13/1342","book_id":1342,"status":"a
+ingest POST 46 (nuevo) => {"path":"<tmp>/run/datalake/20261108/10/46","book_id":46,"status":"downl
+search con indice vacio => {"query":"love","filters":{},"total_matches":0,"offset":0,"limit":-1,"results":[]} [HTTP 200 0.037271s]
+index POST 1342 => {"book_id":1342,"status":"indexed"} [HTTP 200 0.215127s]
+index status 1342 => {"book_id":1342,"status":"indexed"} [HTTP 200 0.023971s]
+index POST /all => {"error":"book_id must be a positive integer"} [HTTP 400 0.016187s]
+indexado de todos los libros, codigos HTTP:     107 200
+[142s] indexado completo: 54s
+index list => {"books":[11,46,84,727,1283,1315,1342,2334,2701,3254,5257,5910,6314,6511,6836,8770,9060,10685,12130,13258,14613,14791,14853,15092,18200,18622,18646,18787,20116,20346,2071
+search whale => {"query":"whale","filters":{},"total_matches":15,"offset":0,"limit":2,"results":[{"book_id":84,"title":"Frankenstein; or, the modern prometheus","author":"Mary Wollstonec
+search love en limit2 offset2 => {"query":"love","filters":{"language":"en"},"total_matches":78,"offset":2,"limit":2,"results":[{"book_id":84,"title":"Frankenstein; or, the modern prometheus","author":"M
+search combinado => {"query":"love","filters":{"author":"Austen","language":"en","year":1998},"total_matches":1,"offset":0,"limit":-1,"results":[{"book_id":1342,"title":"Pride and Prejudice"
+search sin resultados => {"query":"zzzznoexiste","filters":{},"total_matches":0,"offset":0,"limit":-1,"results":[]} [HTTP 200 0.026686s]
+search sin q => {"error":"Query parameter \u0027q\u0027 is required"} [HTTP 400 0.014893s]
+search year=abc => {"error":"Parameter \u0027year\u0027 must be a valid integer"} [HTTP 400 0.014111s]
+search limit=abc => {"query":"love","filters":{},"total_matches":78,"offset":0,"limit":-1,"results":[{"book_id":11,"title":"Alice\u0027s Adventures in Wonderland","author":"Lewis Carroll","l
+parado 5104 search-service/target/search-service-1.0.0.jar
+parado 6796 search-service/target/search-service-1.0.0.jar
+parado 21148 indexing-service/target/indexing-service-1.0.0.jar
+parado 42828 ingestion-service/target/ingestion-service-1.0.0.jar
+[145s] FIN
