@@ -1,0 +1,9 @@
+com\example\indexing\jmh_generated\IndexerBenchmark_jmhType_B1.class
+com\example\indexing\jmh_generated\IndexerBenchmark_jmhType_B3.class
+META-INF\BenchmarkList
+com\example\indexing\IndexerTest.class
+com\example\indexing\jmh_generated\IndexerBenchmark_benchmarkIndexSingleBook_jmhTest.class
+com\example\indexing\jmh_generated\IndexerBenchmark_jmhType.class
+com\example\indexing\jmh_generated\IndexerBenchmark_jmhType_B2.class
+META-INF\CompilerHints
+com\example\indexing\IndexerBenchmark.class
